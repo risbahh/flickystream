@@ -1,5 +1,13 @@
 // ===== Main App Logic =====
 
+// HTML escape helper
+function esc(str) {
+  if (!str) return '';
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
 // Navbar injection
 function renderNavbar(activePage = 'home') {
   const nav = document.createElement('nav');
@@ -26,6 +34,11 @@ function renderNavbar(activePage = 'home') {
   const links = document.getElementById('navLinks');
   btn?.addEventListener('click', () => {
     links.classList.toggle('open');
+  });
+
+  // Close mobile menu on link click
+  links?.querySelectorAll('a').forEach(a => {
+    a.addEventListener('click', () => links.classList.remove('open'));
   });
 }
 
@@ -68,7 +81,7 @@ function renderFooter() {
 // Card component
 function createCard(item) {
   const mediaType = item.media_type || (item.first_air_date ? 'tv' : 'movie');
-  const title = item.title || item.name || 'Untitled';
+  const title = esc(item.title || item.name || 'Untitled');
   const year = TMDB.getYear(item.release_date || item.first_air_date);
   const rating = item.vote_average ? item.vote_average.toFixed(1) : 'N/A';
   const poster = TMDB.img(item.poster_path, 'poster');
@@ -116,6 +129,8 @@ function createCarousel(containerId, fetchFn, maxItems = 20) {
     });
     observeLazyImages(carousel);
     setupCarouselButtons(container);
+  }).catch(err => {
+    console.error('Carousel load error:', err);
   });
 }
 
@@ -128,6 +143,10 @@ function observeLazyImages(container) {
         if (img.dataset.src) {
           img.src = img.dataset.src;
           img.onload = () => img.classList.add('loaded');
+          img.onerror = () => {
+            img.src = 'https://via.placeholder.com/342x513/1a1a1a/333?text=No+Image';
+            img.classList.add('loaded');
+          };
           img.removeAttribute('data-src');
         }
         observer.unobserve(img);
@@ -163,7 +182,7 @@ function createSection(title, id, seeAllLink) {
   section.id = id;
   section.innerHTML = `
     <div class="section-header">
-      <h2 class="section-title">${title}</h2>
+      <h2 class="section-title">${esc(title)}</h2>
       ${seeAllLink ? `<a href="${seeAllLink}" class="section-see-all">See All →</a>` : ''}
     </div>
     <div class="carousel-wrapper">
@@ -180,14 +199,18 @@ async function populateSection(container, fetchFn, maxItems = 20) {
   const carousel = container.querySelector('.carousel');
   if (!carousel) return;
 
-  const data = await fetchFn();
-  const items = (data?.results || []).slice(0, maxItems);
-  items.forEach(item => {
-    if (item.poster_path) carousel.appendChild(createCard(item));
-  });
+  try {
+    const data = await fetchFn();
+    const items = (data?.results || []).slice(0, maxItems);
+    items.forEach(item => {
+      if (item.poster_path) carousel.appendChild(createCard(item));
+    });
 
-  observeLazyImages(carousel);
-  setupCarouselButtons(container);
+    observeLazyImages(carousel);
+    setupCarouselButtons(container);
+  } catch (err) {
+    console.error('Section populate error:', err);
+  }
 }
 
 // Parse URL params

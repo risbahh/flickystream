@@ -60,11 +60,11 @@ function renderHero(item) {
   if (!hero) return;
 
   const mediaType = item.media_type || (item.first_air_date ? 'tv' : 'movie');
-  const title = item.title || item.name || 'Untitled';
+  const title = esc(item.title || item.name || 'Untitled');
   const year = TMDB.getYear(item.release_date || item.first_air_date);
   const rating = item.vote_average ? item.vote_average.toFixed(1) : 'N/A';
   const backdrop = TMDB.img(item.backdrop_path, 'backdrop_lg');
-  const overview = item.overview || '';
+  const overview = esc(item.overview || '');
   const genreNames = getGenreNames(item.genre_ids, mediaType).slice(0, 4);
   const typeLabel = mediaType === 'tv' ? 'Series' : 'Movie';
 
@@ -79,21 +79,20 @@ function renderHero(item) {
         <span>${year}</span>
       </div>
       <div class="hero-genres">
-        ${genreNames.map(g => `<span class="genre-pill">${g}</span>`).join('')}
+        ${genreNames.map(g => `<span class="genre-pill">${esc(g)}</span>`).join('')}
       </div>
       <p class="hero-overview">${overview}</p>
       <div class="hero-buttons">
         <a href="watch.html?id=${item.id}&type=${mediaType}" class="btn btn-primary">▶ Watch Now</a>
-        <button class="btn btn-secondary" onclick="handleAddToList(${item.id}, '${mediaType}', '${title.replace(/'/g, "\\'")}', '${item.poster_path || ''}')">+ Add to List</button>
+        <button class="btn btn-secondary" id="heroAddListBtn">+ Add to List</button>
       </div>
     </div>
   `;
-}
 
-function handleAddToList(id, mediaType, title, posterPath) {
-  const added = MyList.toggle({ id, media_type: mediaType, title, poster_path: posterPath });
-  // Quick visual feedback
-  const btn = event.target;
-  btn.textContent = added ? '✓ Added' : '+ Add to List';
-  setTimeout(() => { btn.textContent = '+ Add to List'; }, 2000);
+  // Use proper event listener instead of inline onclick
+  document.getElementById('heroAddListBtn')?.addEventListener('click', function() {
+    const added = MyList.toggle({ id: item.id, media_type: mediaType, title: item.title || item.name, poster_path: item.poster_path });
+    this.textContent = added ? '✓ Added' : '+ Add to List';
+    setTimeout(() => { this.textContent = '+ Add to List'; }, 2000);
+  });
 }

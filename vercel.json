@@ -1,20 +1,20 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "**/*",
-      "use": "@vercel/static"
-    }
-  ],
+  "cleanUrls": true,
+  "trailingSlash": false,
   "routes": [
-    { "src": "/css/(.*)", "dest": "/css/$1" },
-    { "src": "/js/(.*)", "dest": "/js/$1" },
-    { "src": "/(.+\\.html)", "dest": "/$1" },
-    { "src": "/", "dest": "/index.html" },
-    { "src": "/detail", "dest": "/detail.html" },
-    { "src": "/watch", "dest": "/watch.html" },
-    { "src": "/search", "dest": "/search.html" },
-    { "src": "/browse", "dest": "/browse.html" },
-    { "src": "/(.*)", "dest": "/index.html" }
+    { "src": "^/css/(.*)$", "dest": "/css/$1" },
+    { "src": "^/js/(.*)$", "dest": "/js/$1" },
+    { "src": "^/favicon\\.ico$", "dest": "/favicon.svg" },
+    { "src": "^/$", "dest": "/index.html" },
+    { "src": "^/detail(.*)", "dest": "/detail.html" },
+    { "src": "^/watch(.*)", "dest": "/watch.html" },
+    { "src": "^/search(.*)", "dest": "/search.html" },
+    { "src": "^/browse(.*)", "dest": "/browse.html" },
+    { "src": "^/index\\.html$", "dest": "/index.html" },
+    { "src": "^/detail\\.html$", "dest": "/detail.html" },
+    { "src": "^/watch\\.html$", "dest": "/watch.html" },
+    { "src": "^/search\\.html$", "dest": "/search.html" },
+    { "src": "^/browse\\.html$", "dest": "/browse.html" }
   ]
 }

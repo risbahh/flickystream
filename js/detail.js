@@ -10,13 +10,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (!id) { window.location.href = 'index.html'; return; }
 
   const data = type === 'tv' ? await TMDB.tvDetails(id) : await TMDB.movieDetails(id);
-  if (!data) { document.body.innerHTML = '<p style="padding:100px;text-align:center">Content not found.</p>'; return; }
+  if (!data) {
+    document.getElementById('detailHero').innerHTML = `
+      <div style="padding:100px 20px;text-align:center">
+        <h2>Content not found</h2>
+        <p style="color:var(--text-muted);margin-top:8px">The requested content could not be loaded.</p>
+        <a href="index.html" class="btn btn-primary" style="margin-top:20px;display:inline-flex">← Back to Home</a>
+      </div>
+    `;
+    return;
+  }
 
   renderDetail(data, type);
 });
 
 function renderDetail(data, type) {
-  const title = data.title || data.name || 'Untitled';
+  const title = esc(data.title || data.name || 'Untitled');
   const year = TMDB.getYear(data.release_date || data.first_air_date);
   const rating = data.vote_average ? data.vote_average.toFixed(1) : 'N/A';
   const runtime = type === 'tv'
@@ -25,9 +34,12 @@ function renderDetail(data, type) {
   const backdrop = TMDB.img(data.backdrop_path, 'backdrop_lg');
   const poster = TMDB.img(data.poster_path, 'poster_lg');
   const genres = data.genres || [];
-  const overview = data.overview || 'No description available.';
-  const tagline = data.tagline || '';
+  const overview = esc(data.overview || 'No description available.');
+  const tagline = esc(data.tagline || '');
   const typeLabel = type === 'tv' ? 'Series' : 'Movie';
+
+  // Update page title
+  document.title = `${data.title || data.name} - FlickyStream`;
 
   // Hero section
   const detailHero = document.getElementById('detailHero');
@@ -48,7 +60,7 @@ function renderDetail(data, type) {
           <span class="meta-item">${runtime}</span>
         </div>
         <div class="detail-genres">
-          ${genres.map(g => `<span class="genre-pill">${g.name}</span>`).join('')}
+          ${genres.map(g => `<span class="genre-pill">${esc(g.name)}</span>`).join('')}
         </div>
         <p class="detail-description">${overview}</p>
         <div class="detail-actions">
@@ -60,10 +72,17 @@ function renderDetail(data, type) {
   `;
 
   // Add to list button
-  document.getElementById('addListBtn')?.addEventListener('click', () => {
-    const added = MyList.toggle({ id: data.id, media_type: type, title, poster_path: data.poster_path });
-    document.getElementById('addListBtn').textContent = added ? '✓ Added to List' : '+ Add to List';
-  });
+  const addBtn = document.getElementById('addListBtn');
+  if (addBtn) {
+    // Check if already in list
+    if (MyList.has(data.id, type)) {
+      addBtn.textContent = '✓ In Your List';
+    }
+    addBtn.addEventListener('click', () => {
+      const added = MyList.toggle({ id: data.id, media_type: type, title: data.title || data.name, poster_path: data.poster_path });
+      addBtn.textContent = added ? '✓ In Your List' : '+ Add to List';
+    });
+  }
 
   // Cast
   renderCast(data.credits?.cast?.slice(0, 15) || []);
@@ -82,14 +101,15 @@ function renderCast(cast) {
   const section = document.getElementById('castSection');
   if (!section || !cast.length) { section?.classList.add('hidden'); return; }
 
+  section.classList.remove('hidden');
   section.innerHTML = `
     <h3>Cast</h3>
     <div class="cast-carousel">
       ${cast.map(person => `
         <div class="cast-card">
-          <img src="${TMDB.img(person.profile_path, 'profile')}" alt="${person.name}" loading="lazy">
-          <div class="cast-name">${person.name}</div>
-          <div class="cast-role">${person.character || ''}</div>
+          <img src="${TMDB.img(person.profile_path, 'profile')}" alt="${esc(person.name)}" loading="lazy">
+          <div class="cast-name">${esc(person.name)}</div>
+          <div class="cast-role">${esc(person.character || '')}</div>
         </div>
       `).join('')}
     </div>
@@ -104,6 +124,7 @@ async function renderSeasons(tvId, seasons) {
   const validSeasons = seasons.filter(s => s.season_number > 0).sort((a, b) => a.season_number - b.season_number);
   if (!validSeasons.length) { section.classList.add('hidden'); return; }
 
+  section.classList.remove('hidden');
   section.innerHTML = `
     <h3>Seasons & Episodes</h3>
     <div class="season-tabs" id="seasonTabs">
@@ -136,30 +157,35 @@ async function loadEpisodes(tvId, seasonNum) {
   if (!list) return;
   list.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
 
-  const data = await TMDB.tvSeason(tvId, seasonNum);
-  if (!data?.episodes?.length) {
-    list.innerHTML = '<p style="color:var(--text-muted)">No episodes available.</p>';
-    return;
-  }
+  try {
+    const data = await TMDB.tvSeason(tvId, seasonNum);
+    if (!data?.episodes?.length) {
+      list.innerHTML = '<p style="color:var(--text-muted)">No episodes available.</p>';
+      return;
+    }
 
-  list.innerHTML = data.episodes.map(ep => `
-    <a href="watch.html?id=${tvId}&type=tv&s=${seasonNum}&e=${ep.episode_number}" class="episode-card">
-      <div class="episode-thumb">
-        <img src="${TMDB.img(ep.still_path, 'still')}" alt="Episode ${ep.episode_number}" loading="lazy">
-      </div>
-      <div class="episode-info">
-        <div class="episode-number">S${String(seasonNum).padStart(2,'0')}E${String(ep.episode_number).padStart(2,'0')}</div>
-        <div class="episode-title">${ep.name || 'Episode ' + ep.episode_number}</div>
-        <div class="episode-desc">${ep.overview || 'No description.'}</div>
-      </div>
-    </a>
-  `).join('');
+    list.innerHTML = data.episodes.map(ep => `
+      <a href="watch.html?id=${tvId}&type=tv&s=${seasonNum}&e=${ep.episode_number}" class="episode-card">
+        <div class="episode-thumb">
+          <img src="${TMDB.img(ep.still_path, 'still')}" alt="Episode ${ep.episode_number}" loading="lazy">
+        </div>
+        <div class="episode-info">
+          <div class="episode-number">S${String(seasonNum).padStart(2,'0')}E${String(ep.episode_number).padStart(2,'0')}</div>
+          <div class="episode-title">${esc(ep.name || 'Episode ' + ep.episode_number)}</div>
+          <div class="episode-desc">${esc(ep.overview || 'No description.')}</div>
+        </div>
+      </a>
+    `).join('');
+  } catch (err) {
+    list.innerHTML = '<p style="color:var(--text-muted)">Failed to load episodes.</p>';
+  }
 }
 
 function renderSimilar(items, type) {
   const section = document.getElementById('similarSection');
   if (!section || !items.length) { section?.classList.add('hidden'); return; }
 
+  section.classList.remove('hidden');
   section.innerHTML = `
     <h3>You Might Also Like</h3>
     <div class="carousel-wrapper">
@@ -167,7 +193,7 @@ function renderSimilar(items, type) {
       <div class="carousel">
         ${items.map(item => {
           const mType = type;
-          const t = item.title || item.name || 'Untitled';
+          const t = esc(item.title || item.name || 'Untitled');
           const y = TMDB.getYear(item.release_date || item.first_air_date);
           const r = item.vote_average ? item.vote_average.toFixed(1) : 'N/A';
           const p = TMDB.img(item.poster_path, 'poster');

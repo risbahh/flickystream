@@ -24,8 +24,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     trendingSection.classList.add('hidden');
     resultsContainer.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
 
-    const data = await TMDB.searchMulti(query);
-    renderSearchResults(data?.results || [], query);
+    try {
+      const data = await TMDB.searchMulti(query);
+      renderSearchResults(data?.results || [], query);
+    } catch (err) {
+      resultsContainer.innerHTML = `
+        <div class="no-results">
+          <div class="emoji">⚠️</div>
+          <p>Something went wrong</p>
+          <p style="font-size:0.85rem; margin-top:8px">Please try again</p>
+        </div>
+      `;
+    }
   }, 400));
 
   // Auto-focus
@@ -65,7 +75,7 @@ function renderSearchResults(results, query) {
     container.innerHTML = `
       <div class="no-results">
         <div class="emoji">🔍</div>
-        <p>No results found for "${query}"</p>
+        <p>No results found for "${esc(query)}"</p>
         <p style="font-size:0.85rem; margin-top:8px">Try a different search term</p>
       </div>
     `;
@@ -73,7 +83,7 @@ function renderSearchResults(results, query) {
   }
 
   container.innerHTML = `
-    <h2 class="search-title">Results for "${query}" (${filtered.length})</h2>
+    <h2 class="search-title">Results for "${esc(query)}" (${filtered.length})</h2>
     <div class="search-results-grid" id="resultsGrid"></div>
   `;
 

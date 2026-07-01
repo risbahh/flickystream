@@ -8,8 +8,7 @@ const BrowseState = {
   lang: null,
   filter: null,
   page: 1,
-  loading: false,
-  genresLoaded: false
+  loading: false
 };
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -54,6 +53,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       </div>
     `;
     document.getElementById('loadMoreBtn').style.display = 'none';
+    document.getElementById('genrePills').style.display = 'none';
     return;
   }
 
@@ -72,6 +72,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       updateTypeButtons();
       loadGenrePills();
       document.getElementById('browseGrid').innerHTML = '';
+      document.getElementById('loadMoreBtn').style.display = 'block';
+      document.getElementById('genrePills').style.display = 'flex';
       loadContent();
       updatePageTitle();
     });
@@ -83,6 +85,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       BrowseState.page = 1;
       updateSortButtons();
       document.getElementById('browseGrid').innerHTML = '';
+      document.getElementById('loadMoreBtn').style.display = 'block';
       loadContent();
     });
   });
@@ -138,7 +141,7 @@ function loadGenrePills() {
   container.innerHTML = `
     <button class="filter-btn ${!BrowseState.genre ? 'active' : ''}" data-genre="">All</button>
     ${genres.map(g => `
-      <button class="filter-btn ${BrowseState.genre === g.id ? 'active' : ''}" data-genre="${g.id}">${g.name}</button>
+      <button class="filter-btn ${String(BrowseState.genre) === String(g.id) ? 'active' : ''}" data-genre="${g.id}">${g.name}</button>
     `).join('')}
   `;
 
@@ -149,6 +152,7 @@ function loadGenrePills() {
       container.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       document.getElementById('browseGrid').innerHTML = '';
+      document.getElementById('loadMoreBtn').style.display = 'block';
       loadContent();
     });
   });
@@ -163,46 +167,70 @@ async function loadContent() {
 
   let data;
 
-  if (BrowseState.network) {
-    data = await TMDB.discoverTV({ with_networks: BrowseState.network, sort_by: BrowseState.sort }, BrowseState.page);
-  } else if (BrowseState.lang) {
-    const params = { with_original_language: BrowseState.lang, sort_by: BrowseState.sort };
-    if (BrowseState.genre) params.with_genres = BrowseState.genre;
-    data = BrowseState.type === 'tv'
-      ? await TMDB.discoverTV(params, BrowseState.page)
-      : await TMDB.discoverMovies(params, BrowseState.page);
-  } else if (BrowseState.filter === 'airing_today') {
-    data = await TMDB.airingToday(BrowseState.page);
-  } else if (BrowseState.filter === 'popular') {
-    data = BrowseState.type === 'tv' ? await TMDB.popularTV(BrowseState.page) : await TMDB.popularMovies(BrowseState.page);
-  } else if (BrowseState.filter === 'top_rated') {
-    data = BrowseState.type === 'tv' ? await TMDB.topRatedTV(BrowseState.page) : await TMDB.topRatedMovies(BrowseState.page);
-  } else if (BrowseState.filter === 'upcoming') {
-    data = await TMDB.upcomingMovies(BrowseState.page);
-  } else if (BrowseState.filter === 'classics') {
-    data = await TMDB.discoverMovies({ 'primary_release_date.lte': '1980-01-01', 'vote_average.gte': 7, sort_by: 'popularity.desc' }, BrowseState.page);
-  } else {
-    const params = { sort_by: BrowseState.sort };
-    if (BrowseState.genre) params.with_genres = BrowseState.genre;
-    data = BrowseState.type === 'tv'
-      ? await TMDB.discoverTV(params, BrowseState.page)
-      : await TMDB.discoverMovies(params, BrowseState.page);
-  }
+  try {
+    if (BrowseState.network) {
+      data = await TMDB.discoverTV({ with_networks: BrowseState.network, sort_by: BrowseState.sort }, BrowseState.page);
+    } else if (BrowseState.lang) {
+      const params = { with_original_language: BrowseState.lang, sort_by: BrowseState.sort };
+      if (BrowseState.genre) params.with_genres = BrowseState.genre;
+      data = BrowseState.type === 'tv'
+        ? await TMDB.discoverTV(params, BrowseState.page)
+        : await TMDB.discoverMovies(params, BrowseState.page);
+    } else if (BrowseState.filter === 'airing_today') {
+      data = await TMDB.airingToday(BrowseState.page);
+    } else if (BrowseState.filter === 'popular') {
+      data = BrowseState.type === 'tv' ? await TMDB.popularTV(BrowseState.page) : await TMDB.popularMovies(BrowseState.page);
+    } else if (BrowseState.filter === 'top_rated') {
+      data = BrowseState.type === 'tv' ? await TMDB.topRatedTV(BrowseState.page) : await TMDB.topRatedMovies(BrowseState.page);
+    } else if (BrowseState.filter === 'upcoming') {
+      data = await TMDB.upcomingMovies(BrowseState.page);
+    } else if (BrowseState.filter === 'classics') {
+      data = await TMDB.discoverMovies({ 'primary_release_date.lte': '1980-01-01', 'vote_average.gte': 7, sort_by: 'popularity.desc' }, BrowseState.page);
+    } else {
+      const params = { sort_by: BrowseState.sort };
+      if (BrowseState.genre) params.with_genres = BrowseState.genre;
+      data = BrowseState.type === 'tv'
+        ? await TMDB.discoverTV(params, BrowseState.page)
+        : await TMDB.discoverMovies(params, BrowseState.page);
+    }
 
-  const items = (data?.results || []).filter(i => i.poster_path);
+    const items = (data?.results || []).filter(i => i.poster_path);
 
-  items.forEach(item => {
-    item.media_type = BrowseState.type;
-    grid.appendChild(createCard(item));
-  });
+    if (!items.length && BrowseState.page === 1) {
+      grid.innerHTML = `
+        <div class="no-results" style="grid-column: 1/-1">
+          <div class="emoji">🎬</div>
+          <p>No results found</p>
+          <p style="font-size:0.85rem; margin-top:8px">Try a different filter or genre</p>
+        </div>
+      `;
+      if (loadBtn) loadBtn.style.display = 'none';
+    } else {
+      items.forEach(item => {
+        item.media_type = BrowseState.type;
+        grid.appendChild(createCard(item));
+      });
 
-  observeLazyImages(grid);
+      observeLazyImages(grid);
 
-  // Hide load more if no more results
-  if (!data?.results?.length || data.page >= data.total_pages) {
-    loadBtn.style.display = 'none';
-  } else {
-    loadBtn.style.display = 'block';
+      // Hide load more if no more results
+      if (!data?.results?.length || data.page >= data.total_pages) {
+        if (loadBtn) loadBtn.style.display = 'none';
+      } else {
+        if (loadBtn) loadBtn.style.display = 'block';
+      }
+    }
+  } catch (err) {
+    console.error('Browse load error:', err);
+    if (BrowseState.page === 1) {
+      grid.innerHTML = `
+        <div class="no-results" style="grid-column: 1/-1">
+          <div class="emoji">⚠️</div>
+          <p>Failed to load content</p>
+          <p style="font-size:0.85rem; margin-top:8px">Please try again later</p>
+        </div>
+      `;
+    }
   }
 
   BrowseState.loading = false;
